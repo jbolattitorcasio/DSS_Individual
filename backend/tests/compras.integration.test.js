@@ -66,7 +66,7 @@ describe('API de compras', () => {
 
     const response = await crearCompra({ cantidad: 3 });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect(response.body).toEqual({ error: 'cupo insuficiente' });
     expect(await obtenerDisponible()).toBe(2);
   });
@@ -179,7 +179,7 @@ describe('API de compras', () => {
 
     const response = await request(app).patch('/compras/1/cancelar');
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect(response.body.error).toContain('compra utilizada');
     expect(await obtenerDisponible()).toBe(7);
   });
@@ -202,7 +202,7 @@ describe('API de compras', () => {
     const response = await request(app).patch('/compras/1/utilizar');
     const detalle = await request(app).get('/compras/1');
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect(response.body.error).toContain('transición inválida');
     expect(detalle.body.estado).toBe('PENDIENTE_PAGO');
     expect(detalle.body.historialEstados).toHaveLength(1);

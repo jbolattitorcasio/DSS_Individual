@@ -58,6 +58,14 @@ describe('Evento', () => {
       .toThrow('fecha debe ser futura');
   });
 
+  it('rehidrata explícitamente un evento histórico existente', () => {
+    const datos = { ...crearDatosValidos(), fecha: new Date('2020-01-01T00:00:00.000Z') };
+
+    const evento = Evento.rehidratar(datos);
+
+    expect(evento.fecha).toEqual(datos.fecha);
+  });
+
   it('agrega un tipo de entrada perteneciente al evento', () => {
     const evento = new Evento(crearDatosValidos());
     const tipoEntrada = new TipoEntrada({

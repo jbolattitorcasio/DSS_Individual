@@ -4,6 +4,7 @@ const {
   ErrorDeValidacion,
   RecursoNoEncontradoError,
   AccesoDenegadoError,
+  ConflictoError,
 } = require('./errores');
 
 class ReseniaService {
@@ -24,7 +25,7 @@ class ReseniaService {
       throw new ErrorDeValidacion('solo se puede reseñar una compra utilizada');
     }
     if (this.reseniaRepository.buscarPorCompraId(compra.id)) {
-      throw new ErrorDeValidacion('la compra ya tiene una reseña');
+      throw new ConflictoError('la compra ya tiene una reseña');
     }
 
     const resenia = new Resenia({
@@ -52,11 +53,11 @@ class ReseniaService {
     if (!this.usuarioRepository.buscarPorId(id)) {
       throw new RecursoNoEncontradoError('organizador no encontrado');
     }
-    const eventosIds = new Set(this.eventoRepository.listar()
-      .filter((evento) => evento.organizadorId === id)
-      .map((evento) => evento.id));
-    const resenias = this.reseniaRepository.listar()
-      .filter((resenia) => eventosIds.has(resenia.eventoId));
+    const resenias = ReseniaService.buscarPorOrganizador(
+      this.eventoRepository,
+      this.reseniaRepository,
+      id,
+    );
     return {
       organizadorId: id,
       reputacion: ReseniaService.calcularPromedio(resenias),
@@ -67,6 +68,14 @@ class ReseniaService {
   static calcularPromedio(resenias) {
     if (resenias.length === 0) return null;
     return resenias.reduce((total, { puntaje }) => total + puntaje, 0) / resenias.length;
+  }
+
+  static buscarPorOrganizador(eventoRepository, reseniaRepository, organizadorId) {
+    const eventosIds = new Set(eventoRepository.listar()
+      .filter((evento) => evento.organizadorId === organizadorId)
+      .map((evento) => evento.id));
+    return reseniaRepository.listar()
+      .filter((resenia) => eventosIds.has(resenia.eventoId));
   }
 
   #buscarCompra(id) {

@@ -3,6 +3,7 @@ const TipoEntrada = require('../models/TipoEntrada');
 const { ErrorDeValidacion, RecursoNoEncontradoError } = require('./errores');
 
 const ReseniaService = require('./ReseniaService');
+const DisponibilidadService = require('./DisponibilidadService');
 
 const ORDENES_VALIDOS = new Set([
   'fecha_asc',
@@ -14,11 +15,18 @@ const ORDENES_VALIDOS = new Set([
 ]);
 
 class EventoService {
-  constructor({ eventoRepository, usuarioRepository, categoriaRepository, reseniaRepository }) {
+  constructor({
+    eventoRepository,
+    usuarioRepository,
+    categoriaRepository,
+    reseniaRepository,
+    compraRepository,
+  }) {
     this.eventoRepository = eventoRepository;
     this.usuarioRepository = usuarioRepository;
     this.categoriaRepository = categoriaRepository;
     this.reseniaRepository = reseniaRepository;
+    this.disponibilidadService = new DisponibilidadService(compraRepository);
   }
 
   listar({ q, categoriaId, orden } = {}) {
@@ -39,7 +47,10 @@ class EventoService {
       eventos = eventos.filter((evento) => evento.categoriaId === categoriaNormalizada);
     }
 
-    return this.#ordenar(eventos, orden);
+    return this.#ordenar(eventos, orden).map((evento) => ({
+      ...evento,
+      puntajeOrganizador: this.#puntajeOrganizador(evento.organizadorId),
+    }));
   }
 
   buscarPorId(id) {
@@ -55,6 +66,7 @@ class EventoService {
         otroEvento.id !== evento.id
         && otroEvento.organizadorId === evento.organizadorId
         && otroEvento.fecha.getTime() < evento.fecha.getTime()
+        && otroEvento.fecha.getTime() < Date.now()
       ))
       .map((otroEvento) => otroEvento.id));
     const reseniasAnterioresOrganizador = this.reseniaRepository.listar()
@@ -62,6 +74,11 @@ class EventoService {
 
     return {
       ...evento,
+      tiposEntrada: evento.tiposEntrada.map((tipoEntrada) => ({
+        ...tipoEntrada,
+        cupoTotal: tipoEntrada.cupo,
+        cupoDisponible: this.disponibilidadService.calcularParaTipo(tipoEntrada),
+      })),
       reseniasAnterioresOrganizador,
       puntajeOrganizador: ReseniaService.calcularPromedio(
         this.#reseniasDelOrganizador(evento.organizadorId),
@@ -162,11 +179,11 @@ class EventoService {
   }
 
   #reseniasDelOrganizador(organizadorId) {
-    const eventosIds = new Set(this.eventoRepository.listar()
-      .filter((evento) => evento.organizadorId === organizadorId)
-      .map((evento) => evento.id));
-    return this.reseniaRepository.listar()
-      .filter((resenia) => eventosIds.has(resenia.eventoId));
+    return ReseniaService.buscarPorOrganizador(
+      this.eventoRepository,
+      this.reseniaRepository,
+      organizadorId,
+    );
   }
 }
 

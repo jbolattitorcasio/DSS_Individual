@@ -1,5 +1,6 @@
 const TipoEntrada = require('./TipoEntrada');
 const { validarId, validarTextoObligatorio } = require('./validaciones');
+const REHIDRATAR = Symbol('rehidratar evento existente');
 
 class Evento {
   constructor({
@@ -11,7 +12,7 @@ class Evento {
     organizadorId,
     categoriaId,
     imagenUrl,
-  }) {
+  }, modoCreacion) {
     validarId(id);
     validarTextoObligatorio(nombre, 'nombre');
     validarTextoObligatorio(descripcion, 'descripcion');
@@ -23,7 +24,7 @@ class Evento {
       throw new TypeError('fecha debe ser una fecha válida');
     }
 
-    if (fecha.getTime() <= Date.now()) {
+    if (modoCreacion !== REHIDRATAR && fecha.getTime() <= Date.now()) {
       throw new RangeError('fecha debe ser futura');
     }
 
@@ -36,6 +37,10 @@ class Evento {
     this.categoriaId = categoriaId;
     this.imagenUrl = imagenUrl;
     this.tiposEntrada = [];
+  }
+
+  static rehidratar(datos) {
+    return new Evento(datos, REHIDRATAR);
   }
 
   agregarTipoEntrada(tipoEntrada) {

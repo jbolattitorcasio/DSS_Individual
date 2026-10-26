@@ -3,6 +3,7 @@ const { crearAppDePrueba } = require('./helpers/crearAppDePrueba');
 
 describe('API de reseñas y reputación', () => {
   let app;
+  let dependencias;
 
   const datosEvento = (cambios = {}) => ({
     nombre: 'Evento reseñable',
@@ -34,7 +35,7 @@ describe('API de reseñas y reputación', () => {
   }
 
   beforeEach(() => {
-    ({ app } = crearAppDePrueba());
+    ({ app, dependencias } = crearAppDePrueba());
   });
 
   it('crea una reseña para una compra utilizada', async () => {
@@ -82,7 +83,7 @@ describe('API de reseñas y reputación', () => {
 
     const response = await request(app).post('/compras/1/resenia').send(resenia);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect(response.body.error).toContain('ya tiene una reseña');
   });
 
@@ -145,6 +146,7 @@ describe('API de reseñas y reputación', () => {
     await request(app).post('/compras/1/resenia').send({
       compradorId: 2, puntaje: 5, comentario: 'Gran evento anterior',
     });
+    dependencias.eventoRepository.buscarPorId(1).fecha = new Date('2025-06-20T21:00:00.000Z');
 
     const response = await request(app).get('/eventos/2');
 
@@ -153,6 +155,21 @@ describe('API de reseñas y reputación', () => {
     expect(response.body.reseniasAnterioresOrganizador[0].comentario)
       .toBe('Gran evento anterior');
     expect(response.body.puntajeOrganizador).toBe(5);
+  });
+
+  it('no incluye reseñas asociadas a eventos futuros en el detalle', async () => {
+    await crearEvento({ nombre: 'Evento futuro reseñado', fecha: '2098-06-20T21:00:00.000Z' });
+    await crearEvento({ nombre: 'Evento posterior', fecha: '2099-06-20T21:00:00.000Z' });
+    await crearCompra();
+    await utilizarCompra(1);
+    await request(app).post('/compras/1/resenia').send({
+      compradorId: 2, puntaje: 5, comentario: 'No debe mostrarse como histórica',
+    });
+
+    const response = await request(app).get('/eventos/2');
+
+    expect(response.status).toBe(200);
+    expect(response.body.reseniasAnterioresOrganizador).toEqual([]);
   });
 
   test.each([
@@ -184,5 +201,14 @@ describe('API de reseñas y reputación', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ organizadorId: 1, reputacion: null, resenias: [] });
+  });
+
+  it('expone puntaje null en el listado para eventos sin reseñas', async () => {
+    await crearEvento({ nombre: 'Todavía sin reputación' });
+
+    const response = await request(app).get('/eventos');
+
+    expect(response.status).toBe(200);
+    expect(response.body[0].puntajeOrganizador).toBeNull();
   });
 });

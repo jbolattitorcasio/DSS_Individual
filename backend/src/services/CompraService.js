@@ -1,12 +1,7 @@
 const Compra = require('../models/Compra');
 const { EstadoCompra } = require('../models/EstadoCompra');
-const { ErrorDeValidacion, RecursoNoEncontradoError } = require('./errores');
-
-const ESTADOS_QUE_OCUPAN_CUPO = new Set([
-  EstadoCompra.PENDIENTE_PAGO,
-  EstadoCompra.CONFIRMADA,
-  EstadoCompra.UTILIZADA,
-]);
+const DisponibilidadService = require('./DisponibilidadService');
+const { ErrorDeValidacion, RecursoNoEncontradoError, ConflictoError } = require('./errores');
 const MILISEGUNDOS_POR_DIA = 24 * 60 * 60 * 1000;
 
 class CompraService {
@@ -14,6 +9,7 @@ class CompraService {
     this.compraRepository = compraRepository;
     this.usuarioRepository = usuarioRepository;
     this.eventoRepository = eventoRepository;
+    this.disponibilidadService = new DisponibilidadService(compraRepository);
   }
 
   crear(datos = {}) {
@@ -35,8 +31,8 @@ class CompraService {
     if (!Number.isInteger(datos.cantidad) || datos.cantidad <= 0) {
       throw new ErrorDeValidacion('cantidad debe ser un entero positivo');
     }
-    if (datos.cantidad > this.#calcularDisponible(tipoEntrada)) {
-      throw new ErrorDeValidacion('cupo insuficiente');
+    if (datos.cantidad > this.disponibilidadService.calcularParaTipo(tipoEntrada)) {
+      throw new ConflictoError('cupo insuficiente');
     }
 
     const compra = new Compra({
@@ -78,24 +74,19 @@ class CompraService {
     const evento = this.#buscarEvento(this.#normalizarId(eventoId, 'id'));
     return {
       compras: this.compraRepository.buscarPorEventoId(evento.id),
-      disponibilidad: evento.tiposEntrada.map((tipoEntrada) => ({
-        tipoEntradaId: tipoEntrada.id,
-        nombre: tipoEntrada.nombre,
-        cupoTotal: tipoEntrada.cupo,
-        cupoDisponible: this.#calcularDisponible(tipoEntrada),
-      })),
+      disponibilidad: this.disponibilidadService.obtenerParaEvento(evento),
     };
   }
 
   confirmar(id) {
     const compra = this.#buscarCompra(this.#normalizarId(id, 'id'));
-    compra.cambiarEstado(EstadoCompra.CONFIRMADA);
+    this.#cambiarEstado(compra, EstadoCompra.CONFIRMADA);
     return compra;
   }
 
   utilizar(id) {
     const compra = this.#buscarCompra(this.#normalizarId(id, 'id'));
-    compra.cambiarEstado(EstadoCompra.UTILIZADA);
+    this.#cambiarEstado(compra, EstadoCompra.UTILIZADA);
     return compra;
   }
 
@@ -107,25 +98,24 @@ class CompraService {
       throw new ErrorDeValidacion('no se puede cancelar una compra después del evento');
     }
     if (compra.estado === EstadoCompra.UTILIZADA) {
-      throw new ErrorDeValidacion('no se puede cancelar una compra utilizada');
+      throw new ConflictoError('no se puede cancelar una compra utilizada');
     }
 
     const requiereReembolso = compra.estado === EstadoCompra.CONFIRMADA;
-    compra.cambiarEstado(EstadoCompra.CANCELADA);
+    this.#cambiarEstado(compra, EstadoCompra.CANCELADA);
     if (requiereReembolso) {
-      compra.cambiarEstado(EstadoCompra.REEMBOLSADA);
+      this.#cambiarEstado(compra, EstadoCompra.REEMBOLSADA);
     }
     return compra;
   }
 
-  #calcularDisponible(tipoEntrada) {
-    const cantidadOcupada = this.compraRepository.listar()
-      .filter((compra) => (
-        compra.tipoEntradaId === tipoEntrada.id
-        && ESTADOS_QUE_OCUPAN_CUPO.has(compra.estado)
-      ))
-      .reduce((total, compra) => total + compra.cantidad, 0);
-    return tipoEntrada.cupo - cantidadOcupada;
+  #cambiarEstado(compra, estado) {
+    try {
+      compra.cambiarEstado(estado);
+    } catch (error) {
+      if (error instanceof TypeError) throw new ConflictoError(error.message);
+      throw error;
+    }
   }
 
   #buscarCompra(id) {

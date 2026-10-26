@@ -16,7 +16,11 @@ relaciones existentes y manteniendo repositorios exclusivamente en memoria.
 - En ambos órdenes por puntaje, los organizadores sin reseñas aparecen al final;
   esto evita equiparar ausencia de reputación con una calificación de cero.
 - El detalle de un evento incorpora reseñas de otros eventos del mismo
-  organizador con fecha anterior a la del evento consultado.
+  organizador con fecha anterior a la del evento consultado y que ya ocurrieron
+  respecto de la fecha actual. Las reseñas asociadas a eventos futuros se
+  conservan sin alteración, pero no se muestran como antecedentes históricos.
+- El listado de eventos expone `puntajeOrganizador`, usando `null` cuando el
+  organizador todavía no tiene reseñas.
 
 ## Intervención humana y aprendizaje
 
