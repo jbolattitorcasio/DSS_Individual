@@ -2,13 +2,23 @@ const Evento = require('../models/Evento');
 const TipoEntrada = require('../models/TipoEntrada');
 const { ErrorDeValidacion, RecursoNoEncontradoError } = require('./errores');
 
-const ORDENES_VALIDOS = new Set(['fecha_asc', 'fecha_desc', 'precio_asc', 'precio_desc']);
+const ReseniaService = require('./ReseniaService');
+
+const ORDENES_VALIDOS = new Set([
+  'fecha_asc',
+  'fecha_desc',
+  'precio_asc',
+  'precio_desc',
+  'puntaje_asc',
+  'puntaje_desc',
+]);
 
 class EventoService {
-  constructor({ eventoRepository, usuarioRepository, categoriaRepository }) {
+  constructor({ eventoRepository, usuarioRepository, categoriaRepository, reseniaRepository }) {
     this.eventoRepository = eventoRepository;
     this.usuarioRepository = usuarioRepository;
     this.categoriaRepository = categoriaRepository;
+    this.reseniaRepository = reseniaRepository;
   }
 
   listar({ q, categoriaId, orden } = {}) {
@@ -40,7 +50,23 @@ class EventoService {
       throw new RecursoNoEncontradoError('evento no encontrado');
     }
 
-    return evento;
+    const eventosAnterioresIds = new Set(this.eventoRepository.listar()
+      .filter((otroEvento) => (
+        otroEvento.id !== evento.id
+        && otroEvento.organizadorId === evento.organizadorId
+        && otroEvento.fecha.getTime() < evento.fecha.getTime()
+      ))
+      .map((otroEvento) => otroEvento.id));
+    const reseniasAnterioresOrganizador = this.reseniaRepository.listar()
+      .filter((resenia) => eventosAnterioresIds.has(resenia.eventoId));
+
+    return {
+      ...evento,
+      reseniasAnterioresOrganizador,
+      puntajeOrganizador: ReseniaService.calcularPromedio(
+        this.#reseniasDelOrganizador(evento.organizadorId),
+      ),
+    };
   }
 
   crear(datos = {}) {
@@ -111,12 +137,36 @@ class EventoService {
       return copia.sort((a, b) => direccion * (a.fecha.getTime() - b.fecha.getTime()));
     }
 
+    if (orden.startsWith('puntaje')) {
+      const direccion = orden.endsWith('asc') ? 1 : -1;
+      return copia.sort((a, b) => {
+        const puntajeA = this.#puntajeOrganizador(a.organizadorId);
+        const puntajeB = this.#puntajeOrganizador(b.organizadorId);
+        if (puntajeA === null && puntajeB === null) return 0;
+        if (puntajeA === null) return 1;
+        if (puntajeB === null) return -1;
+        return direccion * (puntajeA - puntajeB);
+      });
+    }
+
     const direccion = orden.endsWith('asc') ? 1 : -1;
     return copia.sort((a, b) => direccion * (this.#precioMinimo(a) - this.#precioMinimo(b)));
   }
 
   #precioMinimo(evento) {
     return Math.min(...evento.tiposEntrada.map(({ precio }) => precio));
+  }
+
+  #puntajeOrganizador(organizadorId) {
+    return ReseniaService.calcularPromedio(this.#reseniasDelOrganizador(organizadorId));
+  }
+
+  #reseniasDelOrganizador(organizadorId) {
+    const eventosIds = new Set(this.eventoRepository.listar()
+      .filter((evento) => evento.organizadorId === organizadorId)
+      .map((evento) => evento.id));
+    return this.reseniaRepository.listar()
+      .filter((resenia) => eventosIds.has(resenia.eventoId));
   }
 }
 
