@@ -16,6 +16,17 @@ export function obtenerEvento(id) {
   return apiFetch(`/eventos/${id}`);
 }
 
+export function crearEvento(datos) {
+  return apiFetch('/eventos', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function obtenerComprasEvento(id) {
+  return apiFetch(`/eventos/${id}/compras`);
+}
+
 export async function obtenerEventos(filtros = {}) {
   const eventos = await apiFetch(`/eventos${crearQuery(filtros)}`);
   return Promise.all(eventos.map(async (evento) => {

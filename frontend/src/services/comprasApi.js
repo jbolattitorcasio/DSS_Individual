@@ -20,6 +20,10 @@ export function cancelarCompra(id) {
   return apiFetch(`/compras/${id}/cancelar`, { method: 'PATCH' });
 }
 
+export function utilizarCompra(id) {
+  return apiFetch(`/compras/${id}/utilizar`, { method: 'PATCH' });
+}
+
 export async function obtenerDetalleCompra(id) {
   const compra = await obtenerCompra(id);
   const evento = await obtenerEvento(compra.eventoId);

@@ -18,6 +18,12 @@ export default function MainNavigation({ active }) {
       >
         <Text style={[styles.label, active === 'compras' && styles.activeLabel]}>Mis compras</Text>
       </Pressable>
+      <Pressable
+        onPress={() => router.push(ROUTES.MIS_EVENTOS)}
+        style={[styles.button, active === 'organizador' && styles.active]}
+      >
+        <Text style={[styles.label, active === 'organizador' && styles.activeLabel]}>Organizar</Text>
+      </Pressable>
     </View>
   );
 }
@@ -26,6 +32,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', backgroundColor: '#E9EAF0', borderRadius: 13, padding: 4, marginBottom: 18 },
   button: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10 },
   active: { backgroundColor: colors.surface },
-  label: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+  label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   activeLabel: { color: colors.primary },
 });

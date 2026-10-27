@@ -61,6 +61,10 @@ src/
 - Comprar entradas, controlar cantidad y simular el pago.
 - Consultar las compras del usuario y sus días restantes.
 - Ver historial, confirmar pagos y cancelar con reembolso simulado.
+- Consultar y publicar eventos como organizador, con múltiples tipos de entrada.
+- Consultar ventas y disponibilidad, y registrar la utilización de compras confirmadas.
+- Conversar dentro de una compra como comprador u organizador, con refresco manual.
+- Calificar compras utilizadas una única vez y consultar la reputación histórica.
 
 La identidad se envía mediante IDs explícitos porque el proyecto todavía no
 incluye autenticación real.

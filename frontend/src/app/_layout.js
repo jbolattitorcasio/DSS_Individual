@@ -20,6 +20,11 @@ export default function RootLayout() {
         <Stack.Screen name="eventos/[id]/comprar" options={{ title: 'Comprar entradas' }} />
         <Stack.Screen name="compras/index" options={{ title: 'Mis compras' }} />
         <Stack.Screen name="compras/[id]" options={{ title: 'Detalle de compra' }} />
+        <Stack.Screen name="compras/[id]/mensajes" options={{ title: 'Conversación' }} />
+        <Stack.Screen name="compras/[id]/resenia" options={{ title: 'Dejar reseña' }} />
+        <Stack.Screen name="organizador/eventos/index" options={{ title: 'Mis eventos' }} />
+        <Stack.Screen name="organizador/eventos/crear" options={{ title: 'Crear evento' }} />
+        <Stack.Screen name="organizador/eventos/[id]/compras" options={{ title: 'Ventas del evento' }} />
       </Stack>
     </UsuarioProvider>
   );

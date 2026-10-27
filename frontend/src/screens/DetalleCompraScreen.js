@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenState from '../components/ScreenState';
 import StatusBadge, { etiquetaEstado } from '../components/StatusBadge';
@@ -8,6 +8,8 @@ import UsuarioSelector from '../components/UsuarioSelector';
 import { cancelarCompra, confirmarCompra, obtenerDetalleCompra } from '../services/comprasApi';
 import { colors } from '../theme/colors';
 import { formatearFecha, formatearPrecio } from '../utils/formatters';
+import { ROUTES } from '../navigation/routes';
+import { useUsuario } from '../context/UsuarioContext';
 
 function agregarReglasTemporales(compra) {
   return {
@@ -18,6 +20,7 @@ function agregarReglasTemporales(compra) {
 
 export default function DetalleCompraScreen() {
   const { id } = useLocalSearchParams();
+  const { usuarioActivo } = useUsuario();
   const [compra, setCompra] = useState(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -97,6 +100,9 @@ export default function DetalleCompraScreen() {
 
   const puedeCancelar = ['PENDIENTE_PAGO', 'CONFIRMADA'].includes(compra.estado)
     && !compra.eventoYaOcurrio;
+  const participa = usuarioActivo && (
+    usuarioActivo.id === compra.compradorId || usuarioActivo.id === compra.evento.organizadorId
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -136,6 +142,17 @@ export default function DetalleCompraScreen() {
         {puedeCancelar ? (
           <Pressable disabled={procesando} onPress={solicitarCancelacion} style={styles.cancelButton}>
             <Text style={styles.cancelText}>Cancelar compra</Text>
+          </Pressable>
+        ) : null}
+
+        {participa ? (
+          <Pressable onPress={() => router.push({ pathname: ROUTES.CHAT_COMPRA, params: { id: compra.id } })} style={styles.secondaryButton}>
+            <Text style={styles.secondaryText}>Abrir conversación</Text>
+          </Pressable>
+        ) : null}
+        {compra.estado === 'UTILIZADA' && usuarioActivo?.id === compra.compradorId ? (
+          <Pressable onPress={() => router.push({ pathname: ROUTES.RESENIA_COMPRA, params: { id: compra.id } })} style={styles.secondaryButton}>
+            <Text style={styles.secondaryText}>Calificar experiencia</Text>
           </Pressable>
         ) : null}
 
@@ -180,6 +197,8 @@ const styles = StyleSheet.create({
   primaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   cancelButton: { borderWidth: 1, borderColor: colors.danger, borderRadius: 14, paddingVertical: 14, marginTop: 11 },
   cancelText: { color: colors.danger, textAlign: 'center', fontWeight: '800' },
+  secondaryButton: { borderWidth: 1, borderColor: colors.primary, borderRadius: 14, paddingVertical: 14, marginTop: 11 },
+  secondaryText: { color: colors.primary, textAlign: 'center', fontWeight: '800' },
   sectionTitle: { color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 29, marginBottom: 14 },
   historyRow: { flexDirection: 'row', minHeight: 58 },
   timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary, marginTop: 4, marginRight: 13 },
