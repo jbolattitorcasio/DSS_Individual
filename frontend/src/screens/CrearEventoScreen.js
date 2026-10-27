@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { combinarFechaHora, esFechaFutura, formatearFecha, formatearHora } from '../utils/fechaEvento';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FilterChip from '../components/FilterChip';
@@ -16,7 +18,10 @@ export default function CrearEventoScreen() {
   const [categoriaId, setCategoriaId] = useState(null);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [fecha, setFecha] = useState('');
+  const [fecha, setFecha] = useState(null);
+  const [hora, setHora] = useState(null);
+  const [selector, setSelector] = useState(null);
+  const [borrador, setBorrador] = useState(new Date());
   const [ubicacion, setUbicacion] = useState('');
   const [imagenUrl, setImagenUrl] = useState('');
   const [tipos, setTipos] = useState([tipoVacio()]);
@@ -31,14 +36,61 @@ export default function CrearEventoScreen() {
     setTipos((actuales) => actuales.map((tipo) => (tipo.key === key ? { ...tipo, [campo]: valor } : tipo)));
   }
 
+  function abrirSelector(modo) {
+    const ahora = new Date();
+    const valor = combinarFechaHora(fecha || ahora, hora || ahora);
+    if (Platform.OS === 'android') {
+      const inicioHoy = new Date(ahora);
+      inicioHoy.setHours(0, 0, 0, 0);
+      DateTimePickerAndroid.open({
+        value: modo === 'date' && valor < inicioHoy ? inicioHoy : valor,
+        mode: modo,
+        display: modo === 'date' ? 'calendar' : 'clock',
+        minimumDate: modo === 'date' ? inicioHoy : undefined,
+        is24Hour: true,
+        onValueChange: (_, seleccionado) => {
+          if (modo === 'date') setFecha(seleccionado);
+          else setHora(seleccionado);
+        },
+        onDismiss: () => {}, // Cancelar o volver conserva ambos valores.
+        onError: () => setError('No se pudo abrir el selector. Intentá nuevamente.'),
+      });
+      return;
+    }
+    setBorrador(valor);
+    setSelector(modo);
+  }
+
+  function confirmarSelector(valor) {
+    if (selector === 'date') setFecha(valor);
+    else setHora(valor);
+    setSelector(null);
+  }
+
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const picker = selector ? (
+    <DateTimePicker
+      value={borrador}
+      mode={selector}
+      display={Platform.OS === 'ios' ? (selector === 'date' ? 'inline' : 'spinner') : (selector === 'date' ? 'calendar' : 'clock')}
+      minimumDate={selector === 'date' ? inicioHoy : undefined}
+      is24Hour
+      locale={Platform.OS === 'ios' ? 'es-AR' : undefined}
+      themeVariant="light"
+      onValueChange={(_, valor) => Platform.OS === 'ios' ? setBorrador(valor) : confirmarSelector(valor)}
+      onDismiss={() => setSelector(null)}
+    />
+  ) : null;
+
   async function publicar() {
     if (procesando) return;
     setError(null);
-    const fechaNormalizada = new Date(fecha);
+    const fechaNormalizada = combinarFechaHora(fecha, hora);
     if (!usuarioActivo) return setError('Seleccioná una identidad simulada.');
     if (!categoriaId) return setError('Seleccioná una categoría.');
-    if (Number.isNaN(fechaNormalizada.getTime()) || fechaNormalizada.getTime() <= Date.now()) {
-      return setError('Ingresá una fecha futura válida, por ejemplo 2027-03-20T21:00.');
+    if (!esFechaFutura(fechaNormalizada)) {
+      return setError('Seleccioná una fecha y hora posteriores al momento actual.');
     }
     const entradas = tipos.map((tipo) => ({
       nombre: tipo.nombre.trim(),
@@ -72,7 +124,24 @@ export default function CrearEventoScreen() {
         <Text style={styles.note}>La identidad simulada seleccionada quedará registrada como organizador.</Text>
         <Field label="Nombre" value={nombre} onChangeText={setNombre} />
         <Field label="Descripción" value={descripcion} onChangeText={setDescripcion} multiline />
-        <Field label="Fecha futura" value={fecha} onChangeText={setFecha} placeholder="2027-03-20T21:00" autoCapitalize="none" />
+        <View style={styles.row}>
+          <View style={styles.half}><SelectorField label="Fecha del evento" value={fecha && formatearFecha(fecha)} placeholder="DD/MM/AAAA" onPress={() => abrirSelector('date')} /></View>
+          <View style={styles.half}><SelectorField label="Hora del evento" value={hora && formatearHora(hora)} placeholder="HH:mm" onPress={() => abrirSelector('time')} /></View>
+        </View>
+        {Platform.OS === 'ios' ? (
+          <Modal visible={selector !== null} transparent animationType="slide" onRequestClose={() => setSelector(null)}>
+            <View style={styles.modalBackdrop}>
+              <View style={styles.modalContent}>
+                <Text style={styles.sectionTitle}>{selector === 'date' ? 'Seleccionar fecha' : 'Seleccionar hora'}</Text>
+                {picker}
+                <View style={styles.ticketHeader}>
+                  <Pressable accessibilityRole="button" onPress={() => setSelector(null)} style={styles.modalAction}><Text style={styles.remove}>Cancelar</Text></Pressable>
+                  <Pressable accessibilityRole="button" onPress={() => confirmarSelector(borrador)} style={styles.modalAction}><Text style={styles.add}>Aceptar</Text></Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : picker}
         <Field label="Ubicación" value={ubicacion} onChangeText={setUbicacion} />
         <Field label="URL de imagen (opcional)" value={imagenUrl} onChangeText={setImagenUrl} autoCapitalize="none" keyboardType="url" />
 
@@ -107,11 +176,25 @@ export default function CrearEventoScreen() {
   );
 }
 
+function SelectorField({ label, value, placeholder, onPress }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value || 'sin seleccionar'}`} onPress={onPress} style={styles.input}>
+        <Text style={[styles.selectorText, !value && styles.placeholder]}>{value || placeholder}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function Field({ label, compact, multiline, ...props }) {
   return <View style={!compact && styles.field}><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} placeholderTextColor="#8B8D97" style={[styles.input, multiline && styles.multiline]} /></View>;
 }
 
 const styles = StyleSheet.create({
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' },
+  modalContent: { backgroundColor: colors.surface, padding: 24, paddingBottom: 40, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  modalAction: { padding: 14 }, selectorText: { color: colors.text, fontSize: 15 }, placeholder: { color: '#8B8D97' },
   safeArea: { flex: 1, backgroundColor: colors.background }, content: { padding: 18, paddingBottom: 40 },
   title: { color: colors.text, fontSize: 30, fontWeight: '900' }, note: { color: colors.textMuted, lineHeight: 20, marginTop: 7, marginBottom: 8 },
   field: { marginTop: 13 }, label: { color: colors.text, fontWeight: '800', marginBottom: 7, marginTop: 10 },
