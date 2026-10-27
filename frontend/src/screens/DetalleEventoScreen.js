@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -7,13 +7,17 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenState from '../components/ScreenState';
 import { obtenerEvento } from '../services/eventosApi';
 import { colors } from '../theme/colors';
 import { formatearFecha, formatearPrecio } from '../utils/formatters';
 import { ROUTES } from '../navigation/routes';
+
+function agregarEstadoTemporal(evento) {
+  return { ...evento, finalizado: new Date(evento.fecha).getTime() <= Date.now() };
+}
 
 export default function DetalleEventoScreen() {
   const { id } = useLocalSearchParams();
@@ -26,7 +30,7 @@ export default function DetalleEventoScreen() {
     setLoading(true);
     setError(null);
     try {
-      setEvento(await obtenerEvento(id));
+      setEvento(agregarEstadoTemporal(await obtenerEvento(id)));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,11 +38,14 @@ export default function DetalleEventoScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let vigente = true;
     obtenerEvento(id)
       .then((resultado) => {
-        if (vigente) setEvento(resultado);
+        if (vigente) {
+          setEvento(agregarEstadoTemporal(resultado));
+          setError(null);
+        }
       })
       .catch((err) => {
         if (vigente) setError(err.message);
@@ -49,7 +56,7 @@ export default function DetalleEventoScreen() {
     return () => {
       vigente = false;
     };
-  }, [id]);
+  }, [id]));
 
   if (loading) {
     return <ScreenState loading title="Cargando detalle…" />;
@@ -126,13 +133,20 @@ export default function DetalleEventoScreen() {
 
         <Pressable
           accessibilityRole="button"
+          disabled={evento.finalizado}
           onPress={() => router.push({
-            pathname: ROUTES.COMPRA_PLACEHOLDER,
-            params: { eventoId: evento.id, nombre: evento.nombre },
+            pathname: ROUTES.COMPRAR_ENTRADAS,
+            params: { id: evento.id },
           })}
-          style={({ pressed }) => [styles.buyButton, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.buyButton,
+            evento.finalizado && styles.disabledButton,
+            pressed && styles.pressed,
+          ]}
         >
-          <Text style={styles.buyButtonText}>Comprar entradas</Text>
+          <Text style={styles.buyButtonText}>
+            {evento.finalizado ? 'Evento finalizado' : 'Comprar entradas'}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -180,4 +194,5 @@ const styles = StyleSheet.create({
   buyButton: { backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 15, marginTop: 30 },
   buyButtonText: { color: '#FFFFFF', textAlign: 'center', fontSize: 17, fontWeight: '800' },
   pressed: { opacity: 0.78 },
+  disabledButton: { backgroundColor: colors.textMuted },
 });

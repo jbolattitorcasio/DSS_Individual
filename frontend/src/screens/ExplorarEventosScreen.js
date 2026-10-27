@@ -17,6 +17,8 @@ import ScreenState from '../components/ScreenState';
 import { obtenerCategorias, obtenerEventos } from '../services/eventosApi';
 import { colors } from '../theme/colors';
 import { ROUTES } from '../navigation/routes';
+import UsuarioSelector from '../components/UsuarioSelector';
+import MainNavigation from '../components/MainNavigation';
 
 const ORDENES = [
   { value: 'fecha_asc', label: 'Fecha ↑' },
@@ -77,6 +79,8 @@ export default function ExplorarEventosScreen() {
 
   const header = (
     <View>
+      <UsuarioSelector />
+      <MainNavigation active="eventos" />
       <Text style={styles.eyebrow}>DESCUBRÍ TU PRÓXIMO PLAN</Text>
       <Text style={styles.heading}>Eventos para vos</Text>
       <TextInput

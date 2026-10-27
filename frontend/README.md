@@ -57,6 +57,10 @@ src/
 - Ordenar por fecha, precio o reputación.
 - Consultar el detalle, entradas y disponibilidad.
 - Ver reputación y reseñas históricas.
-- Navegar al placeholder del futuro flujo de compra.
+- Seleccionar una identidad simulada compartida entre pantallas.
+- Comprar entradas, controlar cantidad y simular el pago.
+- Consultar las compras del usuario y sus días restantes.
+- Ver historial, confirmar pagos y cancelar con reembolso simulado.
 
-El flujo de compra todavía no está implementado.
+La identidad se envía mediante IDs explícitos porque el proyecto todavía no
+incluye autenticación real.

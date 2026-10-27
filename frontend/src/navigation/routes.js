@@ -1,5 +1,7 @@
 export const ROUTES = Object.freeze({
   EXPLORAR: '/',
   DETALLE_EVENTO: '/eventos/[id]',
-  COMPRA_PLACEHOLDER: '/compra-placeholder',
+  COMPRAR_ENTRADAS: '/eventos/[id]/comprar',
+  MIS_COMPRAS: '/compras',
+  DETALLE_COMPRA: '/compras/[id]',
 });
